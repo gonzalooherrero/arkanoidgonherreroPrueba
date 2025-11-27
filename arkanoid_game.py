@@ -35,21 +35,22 @@ def cargar_nivel(self) -> list[str]:
     return filas_sin_vacias;    
 
 @arkanoid_method
+@arkanoid_method
 def preparar_entidades(self) -> None:
-    ancho = self.PADDLE_WIDTH 
-    alto = self.PADDLE_HEIGHT
+    ancho, alto = self.PADDLE_SIZE  # (120, 18)
 
-    x = self.WIDTH // 2 - ancho // 2 
-    y = self.HEIGHT - alto - 20
+    x = self.SCREEN_WIDTH // 2 - ancho // 2
+    y = self.SCREEN_HEIGHT - alto - 20
 
     self.paddle = self.crear_rect(x, y, ancho, alto)
 
     self.score = 0
-    self.lives = self.LIVES
+    self.lives = 3
     self.end_message = ""
 
     self.ball_pos = Vector2(0, 0)
     self.reiniciar_bola()
+
 
 @arkanoid_method
 def crear_bloques(self) -> None:
@@ -87,57 +88,62 @@ def procesar_input(self) -> None:
 
 
 @arkanoid_method
+@arkanoid_method
 def actualizar_bola(self: ArkanoidGame) -> None:
     self.ball_pos += self.ball_velocity
-
     ball_rect = self.obtener_rect_bola()
 
+    # Rebote paredes
     if ball_rect.left <= 0 or ball_rect.right >= self.SCREEN_WIDTH:
-        self.ball_velocity.x *= -1  
-
+        self.ball_velocity.x *= -1
         if ball_rect.left < 0:
             self.ball_pos.x = self.BALL_RADIUS
-        elif ball_rect.right > self.SCREEN_WIDTH:
+        else:
             self.ball_pos.x = self.SCREEN_WIDTH - self.BALL_RADIUS
-
         ball_rect = self.obtener_rect_bola()
 
+    # Rebote techo
     if ball_rect.top <= 0:
-        self.ball_velocity.y *= -1  
+        self.ball_velocity.y *= -1
         self.ball_pos.y = self.BALL_RADIUS
         ball_rect = self.obtener_rect_bola()
 
-    if ball_rect.top >= self.SCREEN_HEIGHT:
+    # Caída
+    if ball_rect.top > self.SCREEN_HEIGHT:
         self.lives -= 1
         if self.lives > 0:
             self.reiniciar_bola()
         else:
             self.running = False
             self.end_message = "GAME OVER"
-        return 
-    
-   
-    if self.paddle is not None and ball_rect.colliderect(self.paddle):
+        return
+        
+    if self.paddle and ball_rect.colliderect(self.paddle):
         self.ball_pos.y = self.paddle.top - self.BALL_RADIUS - 1
-        self.ball_velocity.y *= -1  
+        self.ball_velocity.y *= -1
 
-    indice_golpeado = -1
+        offset = (ball_rect.centerx - self.paddle.centerx) / (self.paddle.width / 2)
+        self.ball_velocity.x += offset
 
+        ball_rect = self.obtener_rect_bola()
+
+    # BLOQUES
+    indice = -1
     for i, rect_bloque in enumerate(self.blocks):
         if ball_rect.colliderect(rect_bloque):
-            indice_golpeado = i
+            indice = i
             self.ball_velocity.y *= -1
             break
 
-    if indice_golpeado != -1:
-        simbolo = self.block_symbols[indice_golpeado]
-
+    if indice != -1:
+        simbolo = self.block_symbols[indice]
         puntos = self.BLOCK_POINTS.get(simbolo, 0)
         self.score += puntos
 
-        self.blocks.pop(indice_golpeado)
-        self.block_colors.pop(indice_golpeado)
-        self.block_symbols.pop(indice_golpeado)
+        self.blocks.pop(indice)
+        self.block_colors.pop(indice)
+        self.block_symbols.pop(indice)
+
 
 @arkanoid_method
 def dibujar_escena(self) -> None:

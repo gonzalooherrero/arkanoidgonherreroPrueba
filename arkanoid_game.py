@@ -149,20 +149,41 @@ def actualizar_bola(self) -> None:
 
 @arkanoid_method
 def dibujar_escena(self) -> None:
-    """Renderiza fondo, bloques, paleta, bola y HUD."""
-    # - Rellena el fondo y dibuja cada bloque con `self.dibujar_rectangulo`.
-    # - Pinta la paleta y la bola con las utilidades proporcionadas.
-    # - Muestra puntuación, vidas y mensajes usando `self.dibujar_texto`.
-    raise NotImplementedError
+        self.screen.fill(self.BACKGROUND_COLOR)
+        for bloque, color in zip(self.blocks, self.block_colors):
+            self.dibujar_rectangulo(bloque, color)
+        self.dibujar_rectangulo(self.paddle, self.PADDLE_COLOR)
+        self.dibujar_circulo((int(self.ball_pos.x), int(self.ball_pos.y)), self.BALL_RADIUS, self.BALL_COLOR)
+        self.dibujar_texto(f"Puntuación: {self.score}", (10, 10))
+        self.dibujar_texto(f"Vidas: {self.lives}", (self.SCREEN_WIDTH - 100, 10))
+        if self.end_message:
+            texto_ancho = self._obtener_fuente(True).size(self.end_message)[0]
+            posicion_x = (self.SCREEN_WIDTH - texto_ancho) // 2
+            posicion_y = self.SCREEN_HEIGHT // 2 - 24
+            self.dibujar_texto(self.end_message, (posicion_x, posicion_y), grande=True)
 
 @arkanoid_method
-def run(self) -> None:
-    """Ejecuta el bucle principal del juego."""
-    # - Inicializa recursos (`self.inicializar_pygame`, `self.cargar_nivel`, etc.).
-    # - Procesa eventos de `self.iterar_eventos()` y llama a los métodos de actualización/dibujo.
-    # - Refresca la pantalla con `self.actualizar_pantalla()` y cierra con `self.finalizar_pygame()`.
-    raise NotImplementedError
+ def run(self) -> None:
+        self.inicializar_pygame()
+        self.cargar_nivel()
+        self.preparar_entidades()
+        self.crear_bloques()
+        self.running = True
+        while self.running:
+            for evento in self.iterar_eventos():
+                if evento.type == self.EVENT_QUIT:
+                    self.running = False
+                elif evento.type == self.EVENT_KEYDOWN:
+                    if evento.key == self.KEY_ESCAPE:
+                        self.running = False
 
+            self.procesar_input()
+            self.actualizar_bola()
+            self.dibujar_escena()
+            self.actualizar_pantalla()
+            if self.clock:
+                self.clock.tick(self.FPS)
+        self.finalizar_pygame()
 
 def main() -> None:
     """Permite ejecutar el juego desde la línea de comandos."""

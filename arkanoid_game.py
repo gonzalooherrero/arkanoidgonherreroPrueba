@@ -11,19 +11,45 @@ from arkanoid_core import *
 
 @arkanoid_method
 def cargar_nivel(self) -> list[str]:
-    """Lee el fichero de nivel y devuelve la cuadrícula como lista de filas."""
-    # - Comprueba que `self.level_path` existe y es fichero.
-    # - Lee su contenido, filtra líneas vacías y valida que todas tienen el mismo ancho.
-    # - Guarda el resultado en `self.layout` y devuélvelo.
-    raise NotImplementedError
+    ruta = Path(self.level_path)
+
+    if not ruta.exists():
+        raise FileNotFoundError("No se encontro el nivel" + str(ruta))
+    
+    texto = ruta.read_text(encoding="utf-8")
+    filas = texto.splitlines()
+
+    filas_sin_vacias =[]
+    for fila in filas:
+        if fila.strip() != "":
+            filas_sin_vacias.append(fila)
+    if len(filas_sin_vacias) == 0:
+        raise ValueError("El nivel esta vacio")
+    ancho = len(filas_sin_vacias[0])
+
+    for fila in filas_sin_vacias:
+        if len(fila) != ancho:
+            raise ValueError("Todas las filas deben de tener el mismo ancho")
+
+    self.layout = filas_sin_vacias
+    return filas_sin_vacias;    
 
 @arkanoid_method
 def preparar_entidades(self) -> None:
-    """Posiciona paleta y bola, y reinicia puntuación y vidas."""
-    # - Ajusta el tamaño de `self.paddle` y céntrala usando `midbottom`.
-    # - Reinicia `self.score`, `self.lives` y `self.end_message`.
-    # - Llama a `self.reiniciar_bola()` para colocar la bola sobre la paleta.
-    raise NotImplementedError
+    ancho = self.PADDLE_WIDTH 
+    alto = self.PADDLE_HEIGHT
+
+    x = self.WIDTH // 2 - ancho // 2 
+    y = self.HEIGHT - alto - 20
+
+    self.paddle = self.crear_rect(x, y, ancho, alto)
+
+    self.score = 0
+    self.lives = self.LIVES
+    self.end_message = ""
+
+    self.ball_pos = Vector2(0, 0)
+    self.reiniciar_bola()
 
 @arkanoid_method
 def crear_bloques(self) -> None:
@@ -61,12 +87,75 @@ def procesar_input(self) -> None:
 
 
 @arkanoid_method
-def actualizar_bola(self) -> None:
-    """Actualiza la posición de la bola y resuelve colisiones."""
-    # - Suma `self.ball_velocity` a `self.ball_pos` y genera `ball_rect` con `self.obtener_rect_bola()`.
-    # - Gestiona rebotes con paredes, paleta y bloques, modificando velocidad y puntuación.
-    # - Controla fin de nivel cuando no queden bloques y resta vidas si la bola cae.
-    raise NotImplementedError
+def actualizar_bola(self: ArkanoidGame) -> None:
+    # 1) Mover la bola según su velocidad actual
+    self.ball_pos += self.ball_velocity
+
+    # Rectángulo de la bola para comprobar colisiones
+    ball_rect = self.obtener_rect_bola()
+
+    # 2) Rebote con paredes izquierda y derecha
+    if ball_rect.left <= 0 or ball_rect.right >= self.SCREEN_WIDTH:
+        self.ball_velocity.x *= -1  # invertimos la velocidad horizontal
+
+        # Recolocamos la bola dentro de la pantalla para que no se quede pegada
+        if ball_rect.left < 0:
+            self.ball_pos.x = self.BALL_RADIUS
+        elif ball_rect.right > self.SCREEN_WIDTH:
+            self.ball_pos.x = self.SCREEN_WIDTH - self.BALL_RADIUS
+
+        ball_rect = self.obtener_rect_bola()
+
+    # 3) Rebote con el techo
+    if ball_rect.top <= 0:
+        self.ball_velocity.y *= -1  # invertimos la velocidad vertical
+        self.ball_pos.y = self.BALL_RADIUS
+        ball_rect = self.obtener_rect_bola()
+
+    # 4) Si la bola se cae por abajo: perdemos una vida
+    if ball_rect.top >= self.SCREEN_HEIGHT:
+        self.lives -= 1
+        if self.lives > 0:
+            self.reiniciar_bola()
+        else:
+            self.running = False
+            self.end_message = "GAME OVER"
+        return  # ya no seguimos comprobando colisiones en este frame
+
+    # 5) Colisión con la paleta
+    if self.paddle is not None and ball_rect.colliderect(self.paddle):
+        # Colocamos la bola justo encima de la paleta
+        self.ball_pos.y = self.paddle.top - self.BALL_RADIUS - 1
+        self.ball_velocity.y *= -1  # rebote vertical
+
+        # (Opcional) Pequeño efecto según dónde golpee en la paleta
+        offset = (ball_rect.centerx - self.paddle.centerx) / (self.paddle.width / 2)
+        self.ball_velocity.x += offset  # ajusta ligeramente vx
+
+        ball_rect = self.obtener_rect_bola()
+
+    # 6) Colisión con bloques
+    indice_golpeado = -1
+
+    for i, rect_bloque in enumerate(self.blocks):
+        if ball_rect.colliderect(rect_bloque):
+            indice_golpeado = i
+            # Rebote simple: invertimos la velocidad vertical
+            self.ball_velocity.y *= -1
+            break
+
+    # 7) Si hemos golpeado un bloque, lo eliminamos y sumamos puntos
+    if indice_golpeado != -1:
+        simbolo = self.block_symbols[indice_golpeado]
+
+        # Usamos la tabla de puntos definida en ArkanoidGame
+        puntos = self.BLOCK_POINTS.get(simbolo, 0)
+        self.score += puntos
+
+        # Eliminamos el bloque y su información asociada
+        self.blocks.pop(indice_golpeado)
+        self.block_colors.pop(indice_golpeado)
+        self.block_symbols.pop(indice_golpeado)
 
 @arkanoid_method
 def dibujar_escena(self) -> None:

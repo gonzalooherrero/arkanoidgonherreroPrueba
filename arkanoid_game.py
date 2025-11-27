@@ -35,8 +35,9 @@ def cargar_nivel(self) -> list[str]:
     return filas_sin_vacias;    
 
 @arkanoid_method
+@arkanoid_method
 def preparar_entidades(self) -> None:
-    ancho, alto = self.PADDLE_SIZE  # (120, 18)
+    ancho, alto = self.PADDLE_SIZE
 
     x = self.SCREEN_WIDTH // 2 - ancho // 2
     y = self.SCREEN_HEIGHT - alto - 20
@@ -49,6 +50,8 @@ def preparar_entidades(self) -> None:
 
     self.ball_pos = Vector2(0, 0)
     self.reiniciar_bola()
+
+    self.running = True   
 
 
 @arkanoid_method

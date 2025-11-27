@@ -35,7 +35,6 @@ def cargar_nivel(self) -> list[str]:
     return filas_sin_vacias;    
 
 @arkanoid_method
-@arkanoid_method
 def preparar_entidades(self) -> None:
     ancho, alto = self.PADDLE_SIZE  # (120, 18)
 
